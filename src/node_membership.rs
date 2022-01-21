@@ -43,13 +43,13 @@ impl<Id: ID + Clone> NodeMembership<Id> {
         Id: PartialEq + Eq,
     {
         let mut membership = self.inner.write().await;
-        return if membership.nodes.contains(&node) {
+        if membership.nodes.contains(&node) {
             false
         } else {
             membership.membership.add_node(&node);
             membership.nodes.push(node);
             true
-        };
+        }
     }
 
     pub async fn remove_node(&self, node: NodeIdentity<Id>) -> bool
@@ -76,12 +76,7 @@ impl<Id: ID + Clone> NodeMembership<Id> {
         I: Into<String>,
     {
         let membership = self.inner.read().await;
-        let node = membership.membership.get_node(item.into());
-
-        return match node {
-            Some(node) => Some(node.clone()),
-            None => None,
-        };
+        membership.membership.get_node(item.into()).cloned()
     }
 }
 

@@ -74,7 +74,7 @@ impl<Id: ID> HashRing<Id> {
     ) -> Self {
         let mut node_membership = NodeMembership::new(3);
         node_membership.add_node(current_node.clone()).await;
-        let gossip_addr = current_node.socket_addr.clone();
+        let gossip_addr = current_node.socket_addr;
         Self {
             node_membership,
             current_node,

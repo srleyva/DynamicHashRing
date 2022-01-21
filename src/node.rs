@@ -14,7 +14,7 @@ pub trait ID: Sized + Hash + Display + Clone + Eq + Debug {
 }
 
 // Node Identity is used the identify of node to load balance amongst a hash ring
-#[derive(Debug, PartialEq, Eq, Deserialize, Serialize, Clone)]
+#[derive(Debug, Eq, Deserialize, Serialize, Clone)]
 pub struct NodeIdentity<Id: ID> {
     pub(crate) id: Id,
     pub(crate) socket_addr: SocketAddr,
@@ -41,15 +41,20 @@ impl<Id: ID> Hash for NodeIdentity<Id> {
     }
 }
 
+impl<Id: ID> PartialEq for NodeIdentity<Id> {
+    fn eq(&self, other: &Self) -> bool {
+        self.id.id() == other.id.id()
+    }
+}
+
 impl<Id: ID + Clone + Eq + Debug + Default> Identity for NodeIdentity<Id> {
     fn has_same_prefix(&self, other: &Self) -> bool {
         other.id().prefix() == self.id().prefix()
     }
 
     fn renew(&self) -> Option<Self> {
-        return match self.id.renew() {
-            Some(id) => Some(NodeIdentity::new(id, self.socket_addr)),
-            None => None,
-        };
+        self.id
+            .renew()
+            .map(|id| NodeIdentity::new(id, self.socket_addr))
     }
 }

@@ -1,4 +1,4 @@
-use std::{fmt::Display, slice::SliceIndex};
+use std::fmt::Display;
 use tokio::sync::OnceCell;
 
 use dynamic_hash_ring::{
@@ -8,9 +8,6 @@ use dynamic_hash_ring::{
 use foca::Config;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
-
-#[macro_use]
-extern crate log;
 
 lazy_static::lazy_static! {
     static ref SERVER: OnceCell<HashRing<NodeUUID>> = OnceCell::new();
@@ -56,10 +53,7 @@ impl ID for NodeUUID {
 async fn main() {
     let args: Vec<String> = std::env::args().collect::<Vec<String>>();
     let addr = args.get(1).unwrap();
-    let announce_to = match args.get(2) {
-        None => None,
-        Some(addr) => Some(addr.parse().unwrap()),
-    };
+    let announce_to = args.get(2).map(|addr| addr.parse().unwrap());
     env_logger::init();
     SERVER
         .get_or_init(|| async {
