@@ -6,6 +6,7 @@ use std::{
 
 use foca::Identity;
 use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
 pub trait ID: Sized + Hash + Display + Clone + Eq + Debug {
     fn prefix(&self) -> &str;
@@ -56,5 +57,41 @@ impl<Id: ID + Clone + Eq + Debug + Default> Identity for NodeIdentity<Id> {
         self.id
             .renew()
             .map(|id| NodeIdentity::new(id, self.socket_addr))
+    }
+}
+
+#[derive(Debug, Hash, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct NodeUUID {
+    prefix: String,
+    uuid: Uuid,
+    id: String,
+}
+
+impl Display for NodeUUID {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.id())
+    }
+}
+
+impl Default for NodeUUID {
+    fn default() -> Self {
+        let uuid = Uuid::new_v4();
+        let prefix = "my-cluster".to_owned();
+        let id = format!("{}-{}", prefix, uuid);
+        Self { prefix, uuid, id }
+    }
+}
+
+impl ID for NodeUUID {
+    fn prefix(&self) -> &str {
+        &self.prefix
+    }
+
+    fn id(&self) -> &str {
+        &self.id
+    }
+
+    fn renew(&self) -> Option<Self> {
+        None
     }
 }

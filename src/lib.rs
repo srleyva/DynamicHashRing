@@ -72,7 +72,7 @@ impl<Id: ID> HashRing<Id> {
         announce_to: Option<SocketAddr>,
         config: Config,
     ) -> Self {
-        let mut node_membership = NodeMembership::new(3);
+        let node_membership = NodeMembership::new(3);
         node_membership.add_node(current_node.clone()).await;
         let gossip_addr = current_node.socket_addr;
         Self {
@@ -138,6 +138,7 @@ impl<Id: ID> HashRing<Id> {
         let buf_len = self.config.max_packet_size.get();
 
         let mut recv_buf = vec![0u8; buf_len];
+        // TODO: Inject this on the HashRing, this will allow for better configurability
         let mut foca = Foca::new(
             self.current_node.clone(),
             self.config.clone(),
@@ -160,7 +161,7 @@ impl<Id: ID> HashRing<Id> {
                 .expect("network not initialzied")
                 .clone()
         };
-        let mut node_membership = self.node_membership.clone();
+        let node_membership = self.node_membership.clone();
 
         tokio::spawn(async move {
             while let Some(input) = rx_foca.recv().await {
@@ -276,6 +277,10 @@ impl<Id: ID> HashRing<Id> {
 
         self.network_ready.notify_one();
     }
+
+    pub fn get_node_membership(&self) -> &NodeMembership<Id> {
+        &self.node_membership
+    }
 }
 
 struct Channels<Id: ID> {
@@ -287,4 +292,73 @@ enum Input<Id: ID> {
     Event(Timer<NodeIdentity<Id>>),
     Data(Bytes),
     Announce(NodeIdentity<Id>),
+}
+
+#[cfg(test)]
+mod test {
+    use std::time::Duration;
+
+    use tokio::sync::OnceCell;
+
+    use crate::{node::NodeUUID, HashRing, NodeIdentity};
+    use foca::Config;
+
+    lazy_static::lazy_static! {
+        static ref SERVER_1: OnceCell<HashRing<NodeUUID>> = OnceCell::new();
+        static ref SERVER_2: OnceCell<HashRing<NodeUUID>> = OnceCell::new();
+    }
+
+    #[tokio::test]
+    async fn test_node_join() {
+        let server_1 = SERVER_1
+            .get_or_init(|| async {
+                HashRing::new(
+                    NodeIdentity::new(
+                        NodeUUID::default(),
+                        "127.0.0.1:7676".parse().expect("bad node port"),
+                    ),
+                    None,
+                    Config::simple(),
+                )
+                .await
+            })
+            .await;
+        tokio::spawn(async move {
+            server_1.start().await;
+        });
+
+        let server_2 = SERVER_2
+            .get_or_init(|| async {
+                HashRing::new(
+                    NodeIdentity::new(
+                        NodeUUID::default(),
+                        "127.0.0.1:7777".parse().expect("bad node port"),
+                    ),
+                    Some("127.0.0.1:7676".parse().unwrap()),
+                    Config::simple(),
+                )
+                .await
+            })
+            .await;
+        tokio::spawn(async move {
+            server_2.start().await;
+        });
+
+        tokio::time::sleep(Duration::from_secs(2)).await;
+
+        let server_1 = SERVER_1.get().unwrap();
+        let server_2 = SERVER_1.get().unwrap();
+
+        let nodes = server_1.get_node_membership().nodes().await;
+        assert_eq!(nodes.len(), 2);
+
+        let nodes = server_2.get_node_membership().nodes().await;
+        assert_eq!(nodes.len(), 2);
+
+        server_2
+            .get_node_membership()
+            .get_node("test")
+            .await
+            .unwrap();
+    }
 }

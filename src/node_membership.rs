@@ -29,16 +29,21 @@ impl<Id: ID + Clone> NodeMembership<Id> {
         }
     }
 
-    pub async fn print_nodes(&mut self) {
+    pub async fn nodes(&self) -> Vec<NodeIdentity<Id>> {
+        let inner = self.inner.read().await;
+        inner.nodes.clone()
+    }
+
+    pub async fn print_nodes(&self) {
         let inner = self.inner.read().await;
         let nodes = inner.nodes.iter().fold(String::new(), |current, node| {
             format!("{} [{}]", current, node)
         });
 
-        info!("Nodes: {}", nodes);
+        info!("nodes: {}", nodes);
     }
 
-    pub async fn add_node(&mut self, node: NodeIdentity<Id>) -> bool
+    pub async fn add_node(&self, node: NodeIdentity<Id>) -> bool
     where
         Id: PartialEq + Eq,
     {
